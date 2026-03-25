@@ -11,7 +11,7 @@ export const prisma =
   new PrismaClient({
     log: ['query'],
     adapter: new PrismaPg(new Pool({
-      connectionString: process.env.DATABASE_URL!,
+      connectionString: "postgresql://freire:Freire123@localhost:5436/freire_db",
     })),
   });
 

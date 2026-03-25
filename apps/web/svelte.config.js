@@ -1,5 +1,8 @@
 import adapter from '@sveltejs/adapter-auto';
 import { relative, sep } from 'node:path';
+import { config as dotenvConfig } from 'dotenv';
+
+dotenvConfig({ path: '.env.local' });
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {

@@ -48,6 +48,8 @@
 	"dependencies": {
 		"@prisma/adapter-pg": "^7.5.0",
 		"@prisma/client": "^7.5.0",
+		"@types/bcryptjs": "^2.4.6",
+		"bcryptjs": "^3.0.3",
 		"pg": "^8.20.0",
 		"prisma": "^7.5.0"
 	}
