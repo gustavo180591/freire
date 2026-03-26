@@ -1,0 +1,33 @@
+{
+  "name": "freire",
+  "version": "1.0.0",
+  "description": "Instituto Paulo Freire - Sistema de Gestión Educativa",
+  "private": true,
+  "scripts": {
+    "dev": "cd apps/web && npm run dev",
+    "build": "cd apps/web && npm run build",
+    "preview": "cd apps/web && npm run preview",
+    "test": "cd apps/web && npm run test",
+    "lint": "cd apps/web && npm run lint",
+    "format": "cd apps/web && npm run format",
+    "db:generate": "cd apps/web && npx prisma generate",
+    "db:migrate": "cd apps/web && npx prisma migrate dev",
+    "db:studio": "cd apps/web && npx prisma studio",
+    "db:seed": "cd apps/web && npx prisma db seed",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
+  "keywords": [
+    "education",
+    "sveltekit",
+    "prisma",
+    "postgresql",
+    "tailwind"
+  ],
+  "author": "Instituto Paulo Freire",
+  "license": "MIT"
+}

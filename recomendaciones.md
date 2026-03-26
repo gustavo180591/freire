@@ -2,7 +2,7 @@
 # Comandos y Pedidos Cortos para Desarrollo - Sistema Paulo Freire
 Instituto Superior de Formación Docente – Paulo Freire
 
----
+**Stack**: SvelteKit 2 + Svelte 5 + Prisma + PostgreSQL + TailwindCSS 4
 
 ## 🎯 **Propósito del Documento**
 
@@ -14,16 +14,23 @@ Colección de comandos y pedidos cortos para copiar y pegar. Cada pedido está d
 
 ## 🚀 **PASO 1: Configuración Base del Proyecto**
 
-### **1.1: Instalar NestJS CLI**
+### **1.1: Instalar SvelteKit CLI**
 ```bash
-npm install -g @nestjs/cli
+npm create svelte@latest
 ```
 **Resultado**: CLI global instalado
-**Verificación**: `nest --version`
+**Verificación**: `npm create svelte@latest --version`
 
-### **1.2: Crear proyecto NestJS**
+### **1.2: Crear proyecto SvelteKit**
 ```bash
-nest new freire --package-manager npm --strict
+npm create svelte@latest freire
+# Seleccionar opciones:
+# - SvelteKit app
+# - TypeScript
+# - ESLint, Prettier
+# - Playwright
+# - TailwindCSS
+
 cd freire
 ```
 **Resultado**: Proyecto base creado
@@ -31,21 +38,20 @@ cd freire
 
 ### **1.3: Instalar dependencias principales**
 ```bash
-npm install @nestjs/core @nestjs/common @nestjs/platform-express
-npm install @nestjs/typeorm typeorm pg ioredis
-npm install @nestjs/jwt @nestjs/passport @nestjs/config
-npm install @nestjs/throttler helmet compression
-npm install passport passport-jwt bcrypt class-validator class-transformer
-npm install @nestjs/event-emitter uuid reflect-metadata
+npm install @prisma/client prisma
+npm install @types/jsonwebtoken jsonwebtoken bcryptjs
+npm install @types/bcryptjs
+npm install lucide-svelte
+npm install @tailwindcss/typography
 ```
-**Resultado**: Dependencias backend instaladas
-**Verificación**: `npm ls --depth=0 | grep @nestjs`
+**Resultado**: Dependencias instaladas
+**Verificación**: `npm ls --depth=0 | grep @prisma`
 
 ### **1.4: Instalar dependencias de desarrollo**
 ```bash
-npm install --save-dev @nestjs/testing jest @types/jest
-npm install --save-dev rimraf prettier eslint @types/bcrypt @types/uuid
-npm install --save-dev @types/passport-jwt @types/supertest supertest
+npm install --save-dev vitest @vitest/ui jsdom
+npm install --save-dev @testing-library/svelte @testing-library/jest-dom
+npm install --save-dev prisma
 ```
 **Resultado**: Dependencias de desarrollo instaladas
 **Verificación**: `npm run test -- --dry-run`
@@ -54,31 +60,17 @@ npm install --save-dev @types/passport-jwt @types/supertest supertest
 ```bash
 cat > tsconfig.json << 'EOF'
 {
+  "extends": "./.svelte-kit/tsconfig.json",
   "compilerOptions": {
-    "module": "commonjs",
-    "declaration": true,
-    "removeComments": true,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "allowSyntheticDefaultImports": true,
-    "target": "ES2021",
+    "allowJs": true,
+    "checkJs": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
     "sourceMap": true,
-    "outDir": "./dist",
-    "baseUrl": "./",
-    "incremental": true,
     "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "paths": {
-      "@/*": ["src/*"],
-      "@/modules/*": ["src/modules/*"],
-      "@/shared/*": ["src/shared/*"]
-    }
+    "moduleResolution": "bundler"
   }
 }
 'EOF'
@@ -88,33 +80,42 @@ cat > tsconfig.json << 'EOF'
 
 ### **1.6: Configurar ESLint**
 ```bash
-cat > .eslintrc.js << 'EOF'
+cat > .eslintrc.cjs << 'EOF'
 module.exports = {
-  parser: '@typescript-eslint/parser',
-  parserOptions: {
-    project: 'tsconfig.json',
-    tsconfigRootDir: __dirname,
-    sourceType: 'module',
-  },
-  plugins: ['@typescript-eslint/eslint-plugin'],
-  extends: [
-    '@nestjs/eslint-config-nestjs',
-    'plugin:@typescript-eslint/recommended',
-    'plugin:prettier/recommended',
-  ],
   root: true,
-  env: {
-    node: true,
-    jest: true,
+  extends: [
+    'eslint:recommended',
+    '@typescript-eslint/recommended',
+    'plugin:svelte/recommended'
+  ],
+  parser: '@typescript-eslint/parser',
+  plugins: ['@typescript-eslint', 'svelte'],
+  parserOptions: {
+    sourceType: 'module',
+    ecmaVersion: 2020,
+    extraFileExtensions: ['.svelte']
   },
-  ignorePatterns: ['.eslintrc.js'],
+  env: {
+    browser: true,
+    es2017: true,
+    node: true
+  },
+  overrides: [
+    {
+      files: ['*.svelte'],
+      parser: 'svelte-eslint-parser',
+      parserOptions: {
+        parser: '@typescript-eslint/parser'
+      }
+    }
+  ],
   rules: {
     '@typescript-eslint/no-unused-vars': 'error',
     '@typescript-eslint/explicit-function-return-type': 'warn',
     '@typescript-eslint/no-explicit-any': 'warn',
     'prefer-const': 'error',
-    'no-var': 'error',
-  },
+    'no-var': 'error'
+  }
 };
 'EOF'
 ```
@@ -130,85 +131,73 @@ cat > .prettierrc << 'EOF'
   "semi": true,
   "printWidth": 80,
   "tabWidth": 2,
-  "useTabs": false
+  "useTabs": false,
+  "svelteSortOrder": "scripts-markup-styles-options"
 }
 'EOF'
 ```
 **Resultado**: Prettier configurado
-**Verificación**: `npx prettier --check src/**/*.ts`
+**Verificación**: `npx prettier --check src/**/*.{ts,svelte}`
 
-### **1.8: Crear estructura DDD**
+### **1.8: Crear estructura SvelteKit**
 ```bash
-mkdir -p src/modules/academic/{domain,application,infrastructure,presentation}
-mkdir -p src/modules/academic/domain/{aggregates,services,events,value-objects}
-mkdir -p src/modules/academic/application/{use-cases,services,queries,dto}
-mkdir -p src/modules/academic/infrastructure/{repositories,entities,mappers,events}
-mkdir -p src/modules/academic/presentation/{controllers,dto,guards,interceptors,filters}
-
-mkdir -p src/modules/auth/{domain,application,infrastructure,presentation}
-mkdir -p src/modules/auth/domain/{aggregates,services,events}
-mkdir -p src/modules/auth/application/{use-cases,services,dto}
-mkdir -p src/modules/auth/infrastructure/{repositories,entities,security}
-mkdir -p src/modules/auth/presentation/{controllers,dto,guards}
-
-mkdir -p src/shared/{domain,infrastructure,presentation}
-mkdir -p src/shared/domain/{base,interfaces,value-objects}
-mkdir -p src/shared/infrastructure/{services,config,security}
-mkdir -p src/shared/presentation/{guards,interceptors,filters,decorators}
+mkdir -p src/lib/server/{auth,users,academic,financial}
+mkdir -p src/lib/components/{ui,forms,layout}
+mkdir -p src/lib/utils/{auth,validation,helpers}
+mkdir -p src/routes/{api,(auth),users,academic}
+mkdir -p test/{unit,integration,e2e}
+mkdir -p prisma/migrations
 ```
-**Resultado**: Estructura DDD creada
-**Verificación**: `tree src/modules -I node_modules`
+**Resultado**: Estructura SvelteKit creada
+**Verificación**: `tree src -I node_modules`
 
 ---
 
 ## 🗄️ **PASO 2: Infraestructura de Datos**
 
-### **2.1: Crear configuración TypeORM**
+### **2.1: Crear configuración Prisma**
 ```bash
-mkdir -p src/config
-cat > src/config/database.config.ts << 'EOF'
-import { DataSource } from 'typeorm';
-import { config } from 'dotenv';
+# Inicializar Prisma
+npx prisma init
 
-config();
+cat > prisma/schema.prisma << 'EOF'
+// This is your Prisma schema file,
+// learn more about it in docs: https://pris.ly/d/prisma-schema
 
-export const AppDataSource = new DataSource({
-  type: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  port: Number(process.env.DB_PORT) || 5432,
-  username: process.env.DB_USERNAME,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_DATABASE,
-  entities: [
-    process.env.NODE_ENV === 'development'
-      ? 'src/**/*.entity.ts'
-      : 'dist/**/*.entity.js'
-  ],
-  migrations: ['dist/migrations/*.js'],
-  synchronize: false,
-  logging: process.env.NODE_ENV === 'development',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  extra: {
-    max: 20,
-    min: 5,
-    acquire: 30000,
-    idle: 10000,
-  },
-});
+generator client {
+  provider = "prisma-client-js"
+}
 
-export async function checkDatabaseHealth(): Promise<boolean> {
-  try {
-    await AppDataSource.query('SELECT 1');
-    return true;
-  } catch (error) {
-    console.error('Database health check failed:', error);
-    return false;
-  }
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      Role     @default(ALUMNO)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  ADMIN_SISTEMA
+  DIRECTOR
+  COORDINADOR_CARRERA
+  SECRETARIA_ACADEMICA
+  SECRETARIA_FINANCIERA
+  DOCENTE
+  ALUMNO
+  BEDEL
 }
 'EOF'
 ```
-**Resultado**: Configuración TypeORM creada
-**Verificación**: `npx tsc --noEmit src/config/database.config.ts`
+**Resultado**: Configuración Prisma creada
+**Verificación**: `npx prisma validate`
 
 ### **2.2: Crear Docker Compose**
 ```bash
@@ -236,27 +225,8 @@ services:
       timeout: 10s
       retries: 3
 
-  redis:
-    image: redis:7-alpine
-    container_name: freire-redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - freire-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
 volumes:
   postgres_data:
-    driver: local
-  redis_data:
     driver: local
 
 networks:
@@ -271,33 +241,22 @@ networks:
 ```bash
 cat > .env.example << 'EOF'
 # Database Configuration
-DB_HOST=localhost
-DB_PORT=5432
-DB_USERNAME=freire
-DB_PASSWORD=your_secure_password_here
-DB_DATABASE=freire_db
+DATABASE_URL="postgresql://freire:password@localhost:5432/freire_db?schema=public"
 
-# Redis Configuration
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=your_redis_password_here
-
-# JWT Configuration (RS256)
-JWT_PRIVATE_KEY_PATH=./keys/private.pem
-JWT_PUBLIC_KEY_PATH=./keys/public.pem
+# JWT Configuration
+JWT_SECRET=your-super-secret-jwt-key-here
+JWT_REFRESH_SECRET=your-super-secret-refresh-key-here
 JWT_EXPIRATION=3600
 JWT_REFRESH_EXPIRATION=604800
 
 # Application Configuration
 NODE_ENV=development
-PORT=3000
-FRONTEND_URL=http://localhost:3000
-API_RATE_LIMIT=100
+PORT=5173
+ORIGIN=http://localhost:5173
 
 # Security Configuration
 BCRYPT_ROUNDS=12
 SESSION_SECRET=your_session_secret_here
-CORS_ORIGIN=http://localhost:3000
 
 # Logging Configuration
 LOG_LEVEL=info
@@ -309,55 +268,8 @@ cp .env.example .env
 **Resultado**: Variables de entorno creadas
 **Verificación**: `ls -la .env*`
 
-### **2.4: Crear módulo Redis**
+### **2.4: Crear sistema de migraciones Prisma**
 ```bash
-mkdir -p src/modules/redis
-cat > src/modules/redis/redis.module.ts << 'EOF'
-import { Module, Global } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-
-@Global()
-@Module({
-  imports: [ConfigModule],
-  providers: [
-    {
-      provide: 'REDIS_CLIENT',
-      useFactory: (configService: ConfigService) => {
-        const Redis = require('ioredis');
-        return new Redis({
-          host: configService.get('REDIS_HOST'),
-          port: configService.get('REDIS_PORT'),
-          password: configService.get('REDIS_PASSWORD'),
-          retryDelayOnFailover: 100,
-          maxRetriesPerRequest: 3,
-          lazyConnect: true,
-        });
-      },
-      inject: [ConfigService],
-    },
-  ],
-  exports: ['REDIS_CLIENT'],
-})
-export class RedisModule {}
-'EOF'
-```
-**Resultado**: Módulo Redis creado
-**Verificación**: `npx tsc --noEmit src/modules/redis/redis.module.ts`
-
-### **2.5: Crear sistema de migraciones**
-```bash
-mkdir -p src/config
-cat > src/config/migration.config.ts << 'EOF'
-import { DataSource } from 'typeorm';
-import { AppDataSource } from './database.config';
-
-export const MigrationDataSource = new DataSource({
-  ...AppDataSource.options,
-  migrations: ['src/migrations/*.ts'],
-  migrationsRun: false,
-});
-'EOF'
-
 mkdir -p scripts
 cat > scripts/migrate.sh << 'EOF'
 #!/bin/bash
@@ -365,16 +277,20 @@ set -e
 
 echo "🔄 Running database migrations..."
 
-npm run typeorm -- query "SELECT 1" || {
+# Verificar conexión a base de datos
+npm run db:migrate -- --dry-run || {
   echo "❌ Database connection failed"
   exit 1
 }
 
-npm run migration:run
+# Ejecutar migraciones
+npm run db:migrate
 
 echo "✅ Migrations completed successfully"
 
-npm run typeorm -- query "SELECT version FROM migrations ORDER BY version DESC LIMIT 1"
+# Verificar estado de la base de datos
+npm run db:studio --browser none &
+echo "📊 Prisma Studio opened"
 'EOF'
 
 chmod +x scripts/migrate.sh
@@ -386,94 +302,72 @@ chmod +x scripts/migrate.sh
 
 ## 🛡️ **PASO 3: Seguridad Base**
 
-### **3.1: Configurar seguridad en main.ts**
+### **3.1: Configurar seguridad en hooks de SvelteKit**
 ```bash
-cat > src/main.ts << 'EOF'
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
-import * as helmet from 'helmet';
-import * as compression from 'compression';
-import { AppModule } from './app.module';
+mkdir -p src/lib/server/hooks
+cat > src/lib/server/hooks/auth.ts << 'EOF'
+import type { Handle } from '@sveltejs/kit';
+import jwt from 'jsonwebtoken';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'],
-        styleSrc: ["'self', 'unsafe-inline'],
-        scriptSrc: ["'self'],
-        imgSrc: ["'self', "data:", "https:"],
-      },
-    },
-    hsts: {
-      maxAge: 31536000,
-      includeSubDomains: true,
-      preload: true,
-    },
-    noSniff: true,
-    frameguard: { action: 'deny' },
-    xssFilter: true,
-  }));
-
-  app.use(compression());
+export const handle: Handle = async ({ event, resolve }) => {
+  // Seguridad base
+  const response = await resolve(event);
   
-  app.enableCors({
-    origin: (origin, callback) => {
-      const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || [];
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  });
+  // Headers de seguridad
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-XSS-Protection', '1; mode=block');
   
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true,
-    transformOptions: {
-      enableImplicitConversion: true,
-    },
-  }));
-
-  await app.listen(process.env.PORT || 3000);
-  
-  console.log(`🚀 Application running on port ${process.env.PORT || 3000}`);
-}
-bootstrap();
+  return response;
+};
 'EOF'
 ```
 **Resultado**: Seguridad base configurada
-**Verificación**: `npx tsc --noEmit src/main.ts`
+**Verificación**: `npx tsc --noEmit src/lib/server/hooks/auth.ts`
 
 ### **3.2: Configurar rate limiting**
 ```bash
-cat > src/shared/presentation/guards/throttle.guard.ts << 'EOF'
-import { Injectable } from '@nestjs/common';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+mkdir -p src/lib/server/middleware
+cat > src/lib/server/middleware/rate-limit.ts << 'EOF'
+import type { Handle } from '@sveltejs/kit';
 
-@Injectable()
-export class CustomThrottlerGuard extends ThrottlerGuard {
-  protected errorMessage = 'Too many requests, please try again later';
-  
-  protected getTracker(req: Record<string, any>): string {
-    const tracker = req.ip;
-    if (req.user?.id) {
-      return `${req.ip}:${req.user.id}`;
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
+const RATE_LIMIT = 100; // requests per window
+const WINDOW_MS = 60 * 1000; // 1 minute
+
+export function rateLimit(): Handle {
+  return async ({ event, resolve }) => {
+    const clientIP = event.getClientAddress() || 'unknown';
+    const now = Date.now();
+    
+    const record = rateLimitMap.get(clientIP);
+    
+    if (!record || now > record.resetTime) {
+      rateLimitMap.set(clientIP, {
+        count: 1,
+        resetTime: now + WINDOW_MS
+      });
+    } else {
+      record.count++;
+      
+      if (record.count > RATE_LIMIT) {
+        return new Response('Too many requests', {
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil((record.resetTime - now) / 1000).toString()
+          }
+        });
+      }
     }
-    return tracker;
-  }
+    
+    return resolve(event);
+  };
 }
 'EOF'
 ```
 **Resultado**: Rate limiting configurado
-**Verificación**: `npx tsc --noEmit src/shared/presentation/guards/throttle.guard.ts`
+**Verificación**: `npx tsc --noEmit src/lib/server/middleware/rate-limit.ts`
 
 ---
 

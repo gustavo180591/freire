@@ -41,19 +41,20 @@ Sistema integral de gestión académica, financiera y de asistencia exclusivo pa
 ## 🛠️ **Stack Tecnológico**
 
 ### **Backend**
-- **Framework**: NestJS + TypeScript
-- **Base de Datos**: PostgreSQL + TypeORM
-- **Cache**: Redis
-- **Arquitectura**: Clean Architecture + Domain-Driven Design
+- **Framework**: SvelteKit 2 (endpoints /api)
+- **Base de Datos**: PostgreSQL + Prisma ORM
+- **Arquitectura**: Monolítica con SvelteKit
 - **Autenticación**: JWT RS256 + Refresh Tokens
-- **Testing**: Jest + Testing Library
+- **Testing**: Vitest + Testing Library
 - **Documentación**: OpenAPI/Swagger
 
 ### **Frontend**
-- **Framework**: Next.js 14 + TypeScript
-- **Estilos**: TailwindCSS + Componentes accesibles
-- **Estado**: React Query + React Hook Form
-- **UI**: Componentes modernos y responsivos
+- **Framework**: SvelteKit 2 + Svelte 5
+- **Estilos**: TailwindCSS 4 + Componentes accesibles
+- **Backend**: SvelteKit (endpoints /api) - mismo frontend para backend
+- **ORM**: Prisma
+- **Base de Datos**: PostgreSQL (Docker)
+- **Infraestructura**: Docker
 
 ### **Infraestructura**
 - **Contenedores**: Docker + Docker Compose
@@ -68,7 +69,6 @@ Sistema integral de gestión académica, financiera y de asistencia exclusivo pa
 ### **📋 Requisitos Previos**
 - Node.js 18+
 - PostgreSQL 14+
-- Redis 6+
 - Docker (opcional)
 
 ### **⚙️ Instalación**
@@ -88,16 +88,16 @@ cp .env.example .env
 docker-compose up -d
 
 # Ejecutar migraciones
-npm run migration:run
+npm run db:migrate
 
 # Iniciar desarrollo
-npm run start:dev
+npm run dev
 ```
 
 ### **🌐 Primer Endpoint**
 ```bash
 # Test de autenticación
-curl -X POST http://localhost:3000/auth/login \
+curl -X POST http://localhost:5173/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email": "admin@paulofreire.edu", "password": "password"}'
 
@@ -121,18 +121,18 @@ curl -X POST http://localhost:3000/auth/login \
 ```
 freire/
 ├── src/
-│   ├── modules/                    # Módulos por bounded context
-│   │   ├── auth/                  # Autenticación y usuarios
-│   │   ├── academic/              # Gestión académica
-│   │   ├── financial/             # Gestión financiera
-│   │   └── shared/                # Componentes compartidos
-│   ├── shared/                    # Utilidades globales
-│   ├── config/                    # Configuración
-│   └── main.ts                   # Bootstrap
-├── docs/                          # 📚 Documentación técnica
-├── ANEXOS/                        # 📋 Documentación de referencia
-├── test/                          # 🧪 Tests
-└── docker/                        # 🐳 Configuración Docker
+│   ├── lib/
+│   │   ├── components/           # Componentes Svelte
+│   │   ├── server/               # Endpoints API de SvelteKit
+│   │   └── utils/                # Utilidades globales
+│   ├── routes/                   # Páginas y API routes
+│   ├── app.html                  # Template principal
+│   └── app.css                   # Estilos globales
+├── prisma/                       # 📁 Schema y migraciones Prisma
+├── docs/                         # 📚 Documentación técnica
+├── ANEXOS/                       # 📋 Documentación de referencia
+├── test/                         # 🧪 Tests
+└── docker/                       # 🐳 Configuración Docker
 ```
 
 ---
@@ -393,25 +393,19 @@ Este proyecto es propiedad del Instituto Superior de Formación Docente Paulo Fr
 - **Clean Architecture**: DDD aplicado correctamente
 
 ### **🌐 Frontend - 100% Integrado**
-- **Next.js 16**: UI moderna con TypeScript
+- **SvelteKit 2**: UI moderna con Svelte 5
 - **6 secciones completas**: Dashboard, Users, Roles, Careers, Enrollments, Commissions
-- **TailwindCSS**: Diseño responsive y accesible
+- **TailwindCSS 4**: Diseño responsive y accesible
 - **Mock data realista**: Datos que reflejan el backend
 
 ### **🔧 Para Iniciar Localmente**
 ```bash
-# Backend
-cd apps/backend
-npm run start:dev
-
-# Frontend  
-cd apps/frontend
+# Iniciar aplicación (monolito SvelteKit)
 npm run dev
 
 # Acceder a:
-# Backend: http://localhost:3000
-# Frontend: http://localhost:3000
-# API Docs: http://localhost:3000/api/docs
+# Frontend + Backend: http://localhost:5173
+# API Docs: http://localhost:5173/api/docs
 ```
 
 ---

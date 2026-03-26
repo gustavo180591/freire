@@ -27,9 +27,9 @@ graph TB
     end
     
     subgraph "Application Servers"
-        APP1[NestJS App Server 1]
-        APP2[NestJS App Server 2]
-        APP3[NestJS App Server 3]
+        APP1[SvelteKit App Server 1]
+        APP2[SvelteKit App Server 2]
+        APP3[SvelteKit App Server 3]
     end
     
     subgraph "Database Layer"

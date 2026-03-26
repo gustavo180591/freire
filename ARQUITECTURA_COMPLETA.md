@@ -29,32 +29,33 @@ Definir la arquitectura técnica ejecutable del sistema, basada en Clean Archite
 ```
 freire/
 ├── src/
-│   ├── modules/
-│   │   └── academic/
-│   │       ├── domain/          # 🧠 Lógica de negocio pura
-│   │       ├── application/     # ⚙️ Casos de uso
-│   │       ├── infrastructure/  # 🔧 Implementación técnica
-│   │       └── presentation/    # 🎯 Controllers API
-│   └── shared/                  # 📦 Componentes reutilizables
+│   ├── lib/
+│   │   ├── components/           # Componentes Svelte
+│   │   ├── server/               # Endpoints API de SvelteKit
+│   │   └── utils/                # Utilidades globales
+│   ├── routes/                   # Páginas y API routes
+│   ├── app.html                  # Template principal
+│   └── app.css                   # Estilos globales
+├── prisma/                       # � Schema y migraciones Prisma
 ├── test/                        # 🧪 Tests
 ├── docs/                        # 📚 Documentación
 └── docker/                      # 🐳 Configuración Docker
 ```
 
 ### **🛠️ Stack Tecnológico**
-- **Backend**: NestJS + TypeScript
-- **Base de Datos**: PostgreSQL + TypeORM
-- **Cache**: Redis
+- **Frontend/Backend**: SvelteKit 2 + Svelte 5
+- **Base de Datos**: PostgreSQL + Prisma ORM
+- **Estilos**: TailwindCSS 4
 - **Autenticación**: JWT RS256
-- **Arquitectura**: Clean Architecture + DDD
-- **Infraestructura**: Docker + Kubernetes
-- **Monitoreo**: Prometheus + Grafana
+- **Arquitectura**: Monolítica con SvelteKit
+- **Infraestructura**: Docker + Docker Compose
+- **Testing**: Vitest + Testing Library
 
 ### **⚡ Primer Endpoint - Inscripción**
 
 #### **1. Entidad de Dominio**
 ```typescript
-// src/modules/academic/domain/entities/inscripcion.entity.ts
+// src/lib/server/domain/entities/inscripcion.entity.ts
 export enum EstadoInscripcion {
   PENDIENTE = 'Pendiente',
   INSCRIPTO = 'Inscripto',
@@ -84,26 +85,33 @@ export class Inscripcion {
 }
 ```
 
-#### **2. Controller API**
+#### **2. API Route SvelteKit**
 ```typescript
-// src/modules/academic/presentation/controllers/inscripcion.controller.ts
-@Controller('inscripciones')
-export class InscripcionController {
-  @Post()
-  async crearInscripcion(@Body() dto: CrearInscripcionDto) {
-    // Lógica de negocio
-    const inscripcion = new Inscripcion(0, dto.alumnoId, dto.comisionId, 'Pendiente', new Date());
-    inscripcion.confirmar();
+// src/routes/api/inscripciones/+server.ts
+import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+import { InscripcionService } from '$lib/server/services/inscripcion.service';
+
+const inscripcionService = new InscripcionService();
+
+export const POST: RequestHandler = async ({ request }) => {
+  try {
+    const dto = await request.json();
     
-    return { success: true, data: inscripcion };
+    // Lógica de negocio
+    const inscripcion = await inscripcionService.crearInscripcion(dto);
+    
+    return json({ success: true, data: inscripcion });
+  } catch (error) {
+    return json({ success: false, error: error.message }, { status: 400 });
   }
-}
+};
 ```
 
 #### **3. Test del Endpoint**
 ```bash
 # Test local
-curl -X POST http://localhost:3000/inscripciones \
+curl -X POST http://localhost:5173/api/inscripciones \
   -H "Content-Type: application/json" \
   -d '{"alumnoId": 1, "comisionId": 1}'
 
@@ -128,11 +136,14 @@ npm install
 # Levantar base de datos
 docker-compose up -d
 
+# Generar cliente Prisma
+npm run db:generate
+
 # Ejecutar migraciones
-npm run migration:run
+npm run db:migrate
 
 # Iniciar desarrollo
-npm run start:dev
+npm run dev
 
 # Ejecutar tests
 npm test
@@ -147,26 +158,25 @@ npm test
 ```mermaid
 graph TB
     subgraph "Frontend Layer"
-        A[React/Vue App] --> B[API Gateway]
+        A[SvelteKit App] --> B[API Routes]
     end
     
-    subgraph "Backend - NestJS"
-        B --> C[Controllers]
-        C --> D[Application Layer]
+    subgraph "Backend - SvelteKit"
+        B --> C[API Handlers]
+        C --> D[Services Layer]
         D --> E[Domain Layer]
-        E --> F[Infrastructure Layer]
+        E --> F[Database Layer]
     end
     
     subgraph "Data Layer"
         F --> G[PostgreSQL]
-        F --> H[Redis Cache]
-        F --> I[Event Store]
+        F --> H[Prisma ORM]
     end
     
     subgraph "External Services"
-        F --> J[Email Service]
-        F --> K[Payment Gateway]
-        F --> L[Ministry API]
+        F --> I[Email Service]
+        F --> J[Payment Gateway]
+        F --> K[Ministry API]
     end
 ```
 
@@ -176,33 +186,33 @@ graph TB
 
 | Capa | Responsabilidad | Tecnologías | Reglas Clave |
 |------|-----------------|-------------|--------------|
-| **Presentation** | HTTP API, DTOs, Validación | NestJS Controllers, Swagger | ❌ Sin lógica de negocio |
-| **Application** | Use Cases, Orchestration | Services, Commands/Queries | ✅ Coordinación de transacciones |
+| **Presentation** | API Routes, Componentes Svelte | SvelteKit Routes, Components | ❌ Sin lógica de negocio en componentes |
+| **Application** | Services, Use Cases | Services, Commands/Queries | ✅ Coordinación de lógica |
 | **Domain** | Entidades, Reglas, Eventos | TypeScript puro, Value Objects | 🔒 Sin dependencias externas |
-| **Infrastructure** | Base de datos, APIs externas | TypeORM, Redis, JWT | 📦 Implementaciones técnicas |
+| **Infrastructure** | Base de datos, APIs externas | Prisma, JWT, Docker | 📦 Implementaciones técnicas |
 
 ### **🔄 Flujo de Request Completo**
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant Controller
-    participant UseCase
+    participant APIRoute
+    participant Service
     participant Domain
-    participant Repository
+    participant Prisma
     participant Database
     
-    Client->>Controller: POST /inscripciones
-    Controller->>Controller: Validar DTO
-    Controller->>UseCase: crearInscripcion(command)
-    UseCase->>Domain: new Inscripcion()
-    UseCase->>Domain: inscripcion.confirmar()
-    UseCase->>Repository: save(inscripcion)
-    Repository->>Database: INSERT INTO inscripcion
-    Database-->>Repository: inscripcion guardada
-    Repository-->>UseCase: Inscripcion entity
-    UseCase-->>Controller: Result<Inscripcion>
-    Controller-->>Client: {success: true, data: {...}}
+    Client->>APIRoute: POST /api/inscripciones
+    APIRoute->>APIRoute: Validar request
+    APIRoute->>Service: crearInscripcion(dto)
+    Service->>Domain: new Inscripcion()
+    Service->>Domain: inscripcion.confirmar()
+    Service->>Prisma: inscripcion.create()
+    Prisma->>Database: INSERT INTO inscripcion
+    Database-->>Prisma: inscripcion guardada
+    Prisma-->>Service: Inscripcion entity
+    Service-->>APIRoute: Result<Inscripcion>
+    APIRoute-->>Client: {success: true, data: {...}}
 ```
 
 ## **🗄️ Modelo de Datos - Entidades y Relaciones**

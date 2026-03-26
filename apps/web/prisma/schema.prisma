@@ -4,58 +4,85 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id            Int       @id @default(autoincrement())
-  
-  // 🔐 Auth
-  email         String    @unique
-  password      String
-  
+  id             Int       @id @default(autoincrement())
+
+  // 🔐 Autenticación
+  email          String    @unique @db.VarChar(255)
+  password       String    @db.VarChar(255)
+
   // 👤 Datos personales
-  firstName     String
-  lastName      String
-  dni           String   @unique
-  phone         String?
-  birthDate     DateTime?
-  
-  // 🏛️ Sistema
-  activo        Boolean   @default(true)
-  emailVerified Boolean   @default(false)
-  
+  firstName      String    @db.VarChar(100)
+  lastName       String    @db.VarChar(100)
+  dni            String    @unique @db.VarChar(20)
+  phone          String?   @db.VarChar(30)
+  birthDate      DateTime?
+
+  // 🏛️ Estado del sistema
+  activo         Boolean   @default(true)
+  emailVerified  Boolean   @default(false)
+
   // 🔐 Seguridad
-  lastLogin     DateTime?
-  failedAttempts Int      @default(0)
-  lockedUntil   DateTime?
-  
+  lastLogin      DateTime?
+  failedAttempts Int       @default(0)
+  lockedUntil    DateTime?
+
   // 🧠 Metadata
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  
-  // 🔗 Relaciones (preparado para futuro)
-  roles         UserRole[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  // 🔗 Relaciones
+  roles          UserRole[]
+  refreshTokens  RefreshToken[]
+
+  @@map("users")
+  @@index([activo])
+  @@index([deletedAt])
 }
+
 model Role {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
-  description String?
-  
-  createdAt   DateTime @default(now())
+  id          Int        @id @default(autoincrement())
+  name        String     @unique @db.VarChar(50)
+  description String?    @db.VarChar(255)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   users       UserRole[]
+
+  @@map("roles")
 }
+
 model UserRole {
-  id      Int  @id @default(autoincrement())
-  
-  userId  Int
-  roleId  Int
-
-  user    User @relation(fields: [userId], references: [id])
-  role    Role @relation(fields: [roleId], references: [id])
-
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  roleId     Int
   assignedAt DateTime @default(now())
 
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
   @@unique([userId, roleId])
+  @@map("user_roles")
+  @@index([userId])
+  @@index([roleId])
+}
+
+model RefreshToken {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  tokenHash  String   @db.VarChar(255)
+  expiresAt  DateTime
+  revoked    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revoked])
 }

@@ -2,7 +2,7 @@
 # Setup Inicial del Proyecto
 Instituto Superior de Formación Docente – Paulo Freire
 
-**Stack**: NestJS + TypeScript + PostgreSQL + Redis
+**Stack**: SvelteKit 2 + Svelte 5 + TailwindCSS 4 + Prisma + PostgreSQL
 
 ---
 
@@ -10,249 +10,339 @@ Instituto Superior de Formación Docente – Paulo Freire
 
 ### 1. Crear Proyecto Base
 ```bash
-# Instalar NestJS CLI globalmente
-npm install -g @nestjs/cli
+# Instalar SvelteKit globalmente
+npm create svelte@latest freire
+# Seleccionar opciones:
+# - SvelteKit app
+# - TypeScript
+# - ESLint, Prettier
+# - Playwright
+# - TailwindCSS
 
-# Crear nuevo proyecto
-nest new freire --package-manager npm --strict
 cd freire
 
 # Instalar dependencias principales
-npm install @nestjs/core @nestjs/common @nestjs/platform-express
-npm install @nestjs/typeorm typeorm pg
-npm install @nestjs/jwt @nestjs/passport @nestjs/config
-npm install @nestjs/throttler helmet compression
-npm install passport passport-jwt bcrypt
-npm install class-validator class-transformer
-npm install @nestjs/event-emitter ioredis uuid
-npm install reflect-metadata
+npm install @prisma/client prisma
+npm install @types/jsonwebtoken jsonwebtoken bcryptjs
+npm install @types/bcryptjs
+npm install lucide-svelte
+npm install @tailwindcss/typography
 
 # Dependencias de desarrollo
-npm install --save-dev @nestjs/testing jest @types/jest
-npm install --save-dev rimraf prettier eslint @types/bcrypt @types/uuid
+npm install --save-dev vitest @vitest/ui jsdom
+npm install --save-dev @testing-library/svelte @testing-library/jest-dom
+npm install --save-dev prisma
 ```
 
 ### 2. Configurar Estructura Base
 ```bash
-# Crear estructura de módulos
-mkdir -p src/modules/academic/{domain,application,infrastructure,presentation}
-mkdir -p src/modules/academic/domain/{aggregates,services,events}
-mkdir -p src/modules/academic/application/{commands,queries,services}
-mkdir -p src/modules/academic/infrastructure/{repositories,events,security}
-mkdir -p src/modules/academic/presentation/{controllers,dto,guards}
-mkdir -p src/shared/{domain,infrastructure,presentation}
+# Crear estructura de carpetas
+mkdir -p src/lib/server/{auth,users,academic,financial}
+mkdir -p src/lib/components/{ui,forms,layout}
+mkdir -p src/lib/utils/{auth,validation,helpers}
+mkdir -p prisma/migrations
 mkdir -p test/{unit,integration,e2e}
 mkdir -p docs docker scripts
 ```
 
-### 3. Configurar TypeORM (Moderno v0.3+)
+### 3. Configurar Prisma
 ```bash
-# Crear configuración de base de datos moderna
-mkdir -p src/config
-cat > src/config/database.config.ts << EOF
-import { DataSource } from 'typeorm';
-import { config } from 'dotenv';
+# Inicializar Prisma
+npx prisma init
 
-config();
+# Crear schema base
+cat > prisma/schema.prisma << EOF
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-export const AppDataSource = new DataSource({
-  type: 'postgres',
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT),
-  username: process.env.DB_USERNAME,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_DATABASE,
-  entities: [
-    process.env.NODE_ENV === 'development'
-      ? 'src/**/*.entity.ts'
-      : 'dist/**/*.entity.js'
-  ],
-  migrations: ['dist/migrations/*.js'],
-  synchronize: false,
-  logging: process.env.NODE_ENV === 'development',
-});
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      Role     @default(ALUMNO)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  ADMIN_SISTEMA
+  DIRECTOR
+  COORDINADOR_CARRERA
+  SECRETARIA_ACADEMICA
+  SECRETARIA_FINANCIERA
+  DOCENTE
+  ALUMNO
+  BEDEL
+}
 EOF
 ```
 
-### 4. Configurar Variables de Entorno
+### 7. Configuración de Variables de Entorno Seguras**
 ```bash
-# Crear .env.example
-cat > .env.example << EOF
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_USERNAME=freire
-DB_PASSWORD=password
-DB_DATABASE=freire_db
+# Variables para desarrollo (.env.development)
+cat > .env.development << 'EOF'
+# Development Database
+DATABASE_URL="postgresql://freire:password@localhost:5432/freire_dev"
 
-# JWT
-JWT_SECRET=your-super-secret-jwt-key-here
-JWT_REFRESH_SECRET=your-super-secret-refresh-key-here
-JWT_EXPIRATION=3600
-JWT_REFRESH_EXPIRATION=604800
+# Development JWT
+JWT_SECRET=dev-jwt-secret-key
+JWT_REFRESH_SECRET=dev-refresh-secret-key
 
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
-# App
+# Development App
 NODE_ENV=development
-PORT=3000
-FRONTEND_URL=http://localhost:3000
-EOF
+PORT=5173
+ORIGIN=http://localhost:5173
+'EOF'
 
-# Copiar a .env
-cp .env.example .env
+# Variables para producción (.env.production)
+cat > .env.production << 'EOF'
+# Production Database (acceso interno)
+DATABASE_URL="postgresql://freire:password@postgres:5432/freire_db"
+
+# Production JWT
+JWT_SECRET=prod-super-secret-jwt-key-change-in-production
+JWT_REFRESH_SECRET=prod-super-secret-refresh-key-change-in-production
+
+# Production App
+NODE_ENV=production
+PORT=5173
+ORIGIN=https://paulofreire.edu
+'EOF'
+
+# Variables estáticas privadas (nunca se filtran al frontend)
+mkdir -p src/lib/server/private
+cat > src/lib/server/private/env.ts << 'EOF'
+import { env } from '$env/dynamic/private';
+
+// Estas variables solo están disponibles en el servidor
+export const databaseUrl = env.DATABASE_URL;
+export const jwtSecret = env.JWT_SECRET;
+export const jwtRefreshSecret = env.JWT_REFRESH_SECRET;
+export const jwtExpiration = parseInt(env.JWT_EXPIRATION || '3600');
+export const jwtRefreshExpiration = parseInt(env.JWT_REFRESH_EXPIRATION || '604800');
+'EOF'
 ```
+**Resultado**: Variables seguras configuradas
+**Verificación**: `ls -la .env* && ls -la src/lib/server/private/`
 
-### 5. Configurar Docker para Desarrollo
+### 5. Configurar Docker para Producción (Server-First)**
 ```bash
-# Crear docker-compose.yml
+# Crear docker-compose.yml con aislamiento
 cat > docker-compose.yml << EOF
 version: '3.8'
 services:
+  # Base de datos en red interna
   postgres:
-    image: postgres:15
+    image: postgres:15-alpine
+    container_name: freire-postgres
     environment:
-      POSTGRES_DB: freire_db
-      POSTGRES_USER: freire
-      POSTGRES_PASSWORD: password
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${DB_DATABASE:-freire_db}
+      POSTGRES_USER: ${DB_USERNAME:-freire}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+    ports: []  # Sin exposición externa - solo acceso interno
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - freire-internal  # Red interna aislada
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-freire}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  redis:
-    image: redis:7-alpine
+  # Aplicación SvelteKit Server-First
+  app:
+    build: .
+    container_name: freire-app
+    environment:
+      - NODE_ENV=production
+      - PORT=5173
+      - DATABASE_URL=postgresql://${DB_USERNAME:-freire}:${DB_PASSWORD:-password}@postgres:5432/${DB_DATABASE:-freire_db}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
     ports:
-      - "6379:6379"
+      - "${APP_PORT:-5173}:5173"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - freire-internal  # Conexión a base de datos
+      - freire-external  # Conexión externa
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
   postgres_data:
+    driver: local
+
+networks:
+  # Red interna para comunicación entre servicios
+  freire-internal:
+    driver: bridge
+    internal: true  # Aislamiento completo
+  
+  # Red externa para acceso a la aplicación
+  freire-external:
+    driver: bridge
 EOF
 ```
+**Resultado**: Docker Compose con aislamiento y Server-First
+**Verificación**: `docker-compose config`
 
-### 6. Scripts de Desarrollo
+### 6. Scripts de Desarrollo y Producción**
 ```bash
-# Actualizar package.json con scripts de desarrollo
+# Actualizar package.json con scripts
 # NOTA: Esto debe agregarse dentro del objeto "scripts" existente en package.json
 
 # Scripts para package.json:
 {
   "scripts": {
-    "prebuild": "rimraf dist",
-    "build": "nest build",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "nest start",
-    "start:dev": "nest start --watch",
-    "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
-    "typeorm": "typeorm-ts-node-commonjs -d src/config/database.config.ts",
-    "migration:generate": "npm run typeorm -- migration:generate src/migrations/InitialCreate",
-    "migration:run": "npm run typeorm -- migration:run",
-    "migration:revert": "npm run typeorm -- migration:revert",
+    "build": "vite build",
+    "dev": "vite dev",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "lint": "prettier --plugin-search-dir . --check . && eslint .",
+    "format": "prettier --plugin-search-dir . --write .",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:prod": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
     "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down"
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:prod": "NODE_ENV=production docker-compose up -d"
   }
 }
 ```
 
 ### 7. Configuración de Seguridad Base
 ```bash
-# Configurar main.ts con seguridad mínima
-cat > src/main.ts << EOF
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
-import helmet from 'helmet';
-import * as compression from 'compression';
-import { AppModule } from './app.module';
+# Configurar hooks de SvelteKit para seguridad
+mkdir -p src/lib/server/hooks
+cat > src/lib/server/hooks/auth.ts << EOF
+import type { Handle } from '@sveltejs/kit';
+import jwt from 'jsonwebtoken';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-
-  // Seguridad base
-  app.use(helmet());
-  app.use(compression());
-  
-  // Validación estricta
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true,
-  }));
-
-  // CORS
-  app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true,
-  });
-
-  await app.listen(process.env.PORT || 3000);
-}
-bootstrap();
+export const handle: Handle = async ({ event, resolve }) => {
+  // Lógica de autenticación aquí
+  return resolve(event);
+};
 EOF
 ```
 
-### 8. Configuración TypeORM en AppModule
+### 8. Configuración SvelteKit para Server-First**
 ```bash
-# Configurar TypeOrmModule.forRootAsync en app.module.ts
-cat > src/app.module.ts << EOF
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { AppDataSource } from './config/database.config';
-import { ConfigModule } from '@nestjs/config';
+# Configurar vite.config.ts para producción
+cat > vite.config.ts << 'EOF'
+import { sveltekit } from '@sveltejs/kit/vite';
+import { defineConfig } from 'vite';
 
-@Module({
-  imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
-    TypeOrmModule.forRootAsync({
-      useFactory: () => ({
-        ...AppDataSource.options,
-      }),
-    }),
-  ],
-})
-export class AppModule {}
-EOF
-```
-
-### 9. Configuración Redis (Opcional pero recomendado)
-```bash
-# Crear módulo Redis
-mkdir -p src/modules/redis
-cat > src/modules/redis/redis.module.ts << EOF
-import { Module, Global } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-
-@Global()
-@Module({
-  imports: [ConfigModule],
-  providers: [
-    {
-      provide: 'REDIS_CLIENT',
-      useFactory: (configService: ConfigService) => {
-        const Redis = require('ioredis');
-        return new Redis({
-          host: configService.get('REDIS_HOST'),
-          port: configService.get('REDIS_PORT'),
-        });
+export default defineConfig({
+  plugins: [
+    sveltekit({
+      adapter: node(),
+      files: {
+        hooks: {
+          // Server hooks para seguridad
+          handle: './src/lib/server/hooks/auth.ts'
+        }
       },
-      inject: [ConfigService],
-    },
+      alias: {
+        $components: 'src/lib/components',
+        $utils: 'src/lib/utils',
+        $server: 'src/lib/server'
+      }
+    })
   ],
-  exports: ['REDIS_CLIENT'],
-})
-export class RedisModule {}
-EOF
+  server: {
+    host: true, // Para Docker
+    port: 5173,
+  },
+  build: {
+    target: 'node18'
+  }
+});
+'EOF'
+
+# Configurar app.d.ts para variables privadas
+cat > src/app.d.ts << 'EOF'
+// See https://kit.svelte.dev/docs/types#app
+// for information about these interfaces
+declare global {
+  namespace App {
+    // interface Error {}
+    interface Locals {
+      user?: import('$lib/server/types/auth').User;
+    }
+    // interface PageData {}
+    // interface Platform {}
+  }
+}
+'EOF'
 ```
+**Resultado**: SvelteKit Server-First configurado
+**Verificación**: `npx tsc --noEmit vite.config.ts`
+
+### 9. Configuración Producción con Server-First**
+```bash
+# Crear health check endpoint
+mkdir -p src/routes/api/health
+cat > src/routes/api/health/+server.ts << 'EOF'
+import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+import { databaseUrl } from '$lib/server/private/env';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: databaseUrl
+    }
+  }
+});
+
+export const GET: RequestHandler = async () => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      version: '1.0.0'
+    });
+  } catch (error) {
+    return json({
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    }, { status: 503 });
+  }
+};
+'EOF'
+```
+**Resultado**: Health check configurado
+**Verificación**: `npx tsc --noEmit src/routes/api/health/+server.ts`
 
 ### Iniciar Desarrollo
 ```bash
@@ -262,23 +352,33 @@ npm run docker:up
 # Esperar 10 segundos para que inicien
 sleep 10
 
-# Generar migraciones iniciales
-npm run migration:generate -- -n InitialCreate
+# Generar cliente Prisma
+npm run db:generate
 
 # Ejecutar migraciones
-npm run migration:run
+npm run db:migrate
 
 # Iniciar desarrollo
-npm run start:dev
+npm run dev
 ```
 
-### Crear Nuevo Módulo
+### Crear Nueva Ruta API
 ```bash
-# Ejemplo: Crear módulo de usuarios
-nest generate module users
-nest generate controller users
-nest generate service users
-nest generate entity users
+# Ejemplo: Crear ruta de usuarios
+mkdir -p src/routes/api/users
+cat > src/routes/api/users/+server.ts << EOF
+import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+
+export const GET: RequestHandler = async () => {
+  return json({ users: [] });
+};
+
+export const POST: RequestHandler = async ({ request }) => {
+  const data = await request.json();
+  return json({ success: true, data });
+};
+EOF
 ```
 
 ### Testing
@@ -287,37 +387,42 @@ nest generate entity users
 npm test
 
 # Tests con cobertura
-npm run test:cov
+npm run test:coverage
+
+# Tests en modo UI
+npm run test:ui
 
 # Tests en modo watch
-npm run test:watch
+npm test -- --watch
 ```
 
 ---
 
-## 🧪 Decisión Estratégica: TypeORM vs Prisma
+## 🧪 Decisión Estratégica: Prisma vs TypeORM
 
 ### 📋 Opciones Disponibles
 
-**TypeORM** (Recomendado para DDD puro):
-- ✅ Más tradicional y estable
-- ✅ Mayor flexibilidad para DDD
-- ✅ Control total sobre queries
-- ✅ Mejor para aggregates complejos
-
-**Prisma** (Alternativa moderna):
+**Prisma** (Recomendado para SvelteKit):
 - ✅ Mejor developer experience
 - ✅ Type safety extremo
-- ✅ Menos boilerplate
+- ✅ Auto-completado superior
+- ✅ Migraciones automáticas
 - ✅ Queries optimizadas automáticamente
+
+**TypeORM** (Alternativa tradicional):
+- ✅ Más control manual
+- ✅ Mayor flexibilidad
+- ✅ Mejor para DDD puro
+- ✅ Control total sobre queries
 
 ### 🎯 Recomendación para este Proyecto
 
-**TypeORM** - Por qué:
-- DDD con aggregates complejos
-- Control total sobre persistencia
-- Flexibilidad para Event Store
-- Mejor alineación con Clean Architecture
+**Prisma** - Por qué:
+- Integración perfecta con SvelteKit
+- Type safety de extremo a extremo
+- Developer experience superior
+- Migraciones automáticas y seguras
+- Auto-completado en VSCode increíble
 
 ---
 
@@ -326,45 +431,47 @@ npm run test:watch
 ### 1️⃣ Módulo AUTH Primero
 Antes de cualquier módulo de negocio:
 - Implementar JWT con refresh tokens
-- Configurar guards y middleware
-- Crear ABAC policies
+- Configurar hooks de SvelteKit
+- Crear middleware de autenticación
 - Tests de seguridad exhaustivos
 
 ### 2️⃣ Estructura Definitiva
-- Módulos por bounded context
-- Clean Architecture estricta
-- Domain Services para reglas cruzadas
-- Event Store simplificado
+- Rutas API en /src/routes/api/
+- Componentes en /src/lib/components/
+- Servicios en /src/lib/server/
+- Utilidades en /src/lib/utils/
 
 ### 3️⃣ Primer Módulo de Negocio
-- Academic module con aggregates
-- Validaciones de dominio
+- Users module con Prisma
+- Validaciones con Zod
 - Tests unitarios e integración
 
 ---
 
 ## 📋 Checklist de Setup Profesional
 
-- [ ] Proyecto NestJS creado con --strict
+- [ ] Proyecto SvelteKit creado con TypeScript
 - [ ] Dependencias completas instaladas
-- [ ] TypeORM v0.3+ con DataSource
-- [ ] Seguridad base configurada (helmet, compression, validation)
+- [ ] Prisma configurado con PostgreSQL
+- [ ] TailwindCSS 4 configurado
 - [ ] Variables de entorno completas
 - [ ] Docker compose funcionando
 - [ ] Scripts de desarrollo correctos
-- [ ] Estructura de carpetas DDD
+- [ ] Estructura de carpetas SvelteKit
 - [ ] Módulo AUTH implementado
-- [ ] Tests configurados
+- [ ] Tests configurados con Vitest
 
 ---
 
 ## 🎯 Conclusión
 
 **Setup profesional listo para desarrollo real con**:
-- ✅ TypeORM moderno v0.3+
+- ✅ SvelteKit 2 + Svelte 5
+- ✅ Prisma ORM moderno
+- ✅ TailwindCSS 4 integrado
 - ✅ Seguridad enterprise desde el inicio
-- ✅ Estructura DDD/Clean Architecture
+- ✅ Estructura moderna y mantenible
 - ✅ Dependencias completas y actualizadas
 - ✅ Configuración profesional sin improvisaciones
 
-**El proyecto está listo para implementación seria.**
+**El proyecto está listo para implementación seria con stack moderno.**

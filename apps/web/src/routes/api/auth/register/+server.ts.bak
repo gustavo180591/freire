@@ -1,0 +1,50 @@
+import { json } from '@sveltejs/kit';
+import { UserService } from '$lib/server/services/user.service';
+import { AuthService } from '$lib/server/services/auth.service';
+import { ValidationError, ConflictError } from '$lib/server/utils/errors';
+import type { RequestHandler } from './$types';
+
+export const POST: RequestHandler = async ({ request }) => {
+	try {
+		const formData = await request.formData();
+		
+		const userData = {
+			email: formData.get('email')?.toString() || '',
+			password: formData.get('password')?.toString() || '',
+			firstName: formData.get('firstName')?.toString() || '',
+			lastName: formData.get('lastName')?.toString() || '',
+			dni: formData.get('dni')?.toString() || '',
+			phone: formData.get('phone')?.toString() || '',
+			birthDate: formData.get('birthDate')?.toString() || ''
+		};
+
+		// Usar el servicio de usuario para crear el usuario
+		const userService = new UserService();
+		const user = await userService.create(userData);
+
+		return json({
+			message: 'Usuario creado exitosamente',
+			user
+		}, { status: 201 });
+
+	} catch (error) {
+		console.error('Error en registro:', error);
+		
+		// Manejar errores específicos
+		if (error instanceof ValidationError) {
+			return json({ error: error.message }, { status: 400 });
+		}
+		
+		if (error instanceof ConflictError) {
+			return json({ error: error.message }, { status: 409 });
+		}
+
+		return json(
+			{ 
+				error: 'Error interno del servidor',
+				message: 'No se pudo crear el usuario. Por favor, inténtalo de nuevo.'
+			},
+			{ status: 500 }
+		);
+	}
+};

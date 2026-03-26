@@ -2,7 +2,7 @@
 # Estructura de Módulos y Patrones de Implementación
 Instituto Superior de Formación Docente – Paulo Freire
 
-**Stack Definitivo**: NestJS + TypeScript + PostgreSQL + Redis
+**Stack Definitivo**: SvelteKit 2 + Svelte 5 + Prisma + PostgreSQL
 
 ---
 
@@ -17,15 +17,14 @@ Definir la estructura de módulos del sistema y patrones de implementación cons
 ```
 freire/
 ├── src/
-│   ├── modules/                    # Módulos por bounded context
-│   │   ├── auth/                  # Módulo de autenticación
-│   │   ├── academic/              # Módulo académico principal
-│   │   ├── financial/             # Módulo financiero
-│   │   └── shared/                # Módulo compartido
-│   ├── shared/                    # Componentes compartidos globales
-│   ├── config/                    # Configuración por ambiente
-│   ├── common/                    # Utilidades comunes
-│   └── main.ts                   # Bootstrap de la aplicación
+│   ├── lib/
+│   │   ├── components/           # Componentes Svelte
+│   │   ├── server/               # Endpoints API de SvelteKit
+│   │   └── utils/                # Utilidades globales
+│   ├── routes/                   # Páginas y API routes
+│   ├── app.html                  # Template principal
+│   └── app.css                   # Estilos globales
+├── prisma/                       # 📁 Schema y migraciones Prisma
 ├── test/                         # Tests
 ├── docker/                       # Configuración Docker
 ├── docs/                         # Documentación
@@ -34,20 +33,24 @@ freire/
 
 ---
 
-## 🏗️ **Estructura de Módulo (Patrones DDD)**
+## 🏗️ **Estructura de Módulo (Patrones SvelteKit)**
 
 ### **📋 Estructura Estándar por Módulo**
 
 ```
-src/modules/{module-name}/
-├── domain/                      # 🧠 Lógica de negocio pura
-│   ├── entities/               # Entidades del dominio
-│   │   ├── {entity}.entity.ts
-│   │   └── {aggregate}.entity.ts
-│   ├── value-objects/          # Value Objects inmutables
-│   │   └── {vo}.vo.ts
-│   ├── services/               # Domain Services stateless
-│   │   └── {service}.service.ts
+src/lib/server/{module-name}/
+├── services/                    # 🧠 Lógica de negocio
+│   ├── {service}.service.ts
+│   └── {service}.test.ts
+├── routes/                      # 🎯 API Routes
+│   └── api/{module}/
+│       └── +server.ts
+├── components/                  # 🎨 Componentes Svelte
+│   ├── {Component}.svelte
+│   └── {Component}.test.ts
+└── types/                       # 📝 Types TypeScript
+    └── {module}.types.ts
+```
 │   ├── events/                 # Eventos de dominio
 │   │   └── {event}.event.ts
 │   └── repositories/           # Interfaces puras

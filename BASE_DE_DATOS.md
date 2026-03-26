@@ -1,6 +1,8 @@
-# DATABASE_DESIGN.md
+# BASE_DE_DATOS.md
+# Diseño de Base de Datos con Prisma
+Instituto Superior de Formación Docente – Paulo Freire
 
----
+**Stack**: PostgreSQL + Prisma ORM
 
 ## 1. Entidades Principales
 

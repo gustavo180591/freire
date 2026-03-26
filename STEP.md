@@ -3,15 +3,14 @@
 Instituto Superior de Formación Docente – Paulo Freire
 
 **Stack Tecnológico Principal**:
-- **Backend**: NestJS + TypeScript
-- **Database**: PostgreSQL + TypeORM
-- **Cache**: Redis
+- **Frontend/Backend**: SvelteKit 2 + Svelte 5
+- **Database**: PostgreSQL + Prisma ORM
 - **Auth**: JWT RS256 + Refresh Tokens
-- **Architecture**: Clean Architecture + DDD
+- **Architecture**: Monolítica con SvelteKit
 - **Security**: Helmet, CORS, Rate Limiting
-- **Testing**: Jest + Testing Library
+- **Testing**: Vitest + Testing Library
 - **Development**: 100% Remoto con Docker
-- **Frontend**: Next.js 14 + TypeScript + TailwindCSS
+- **Estilos**: TailwindCSS 4
 
 ---
 
@@ -30,19 +29,25 @@ Guía paso a paso para construir el sistema educativo enterprise con seguridad d
 
 ## 🔧 **PASO 1: Configuración Base del Proyecto**
 
-### **1.1: Crear Proyecto NestJS con Configuración Estricta**
+### **1.1: Crear Proyecto SvelteKit con Configuración Estricta**
 
 **Objetivo**: Inicializar proyecto con configuración enterprise-ready
 **Tiempo estimado**: 30 minutos
-**Archivos**: package.json, tsconfig.json, nest-cli.json
+**Archivos**: package.json, svelte.config.js, vite.config.ts
 **Líneas máximas**: 200 líneas totales
 **Tests requeridos**: 1 test básico de configuración
 
 **Implementación**:
 ```bash
 # Crear proyecto con configuración estricta
-npm install -g @nestjs/cli
-nest new freire --package-manager npm --strict
+npm create svelte@latest freire
+# Seleccionar opciones:
+# - SvelteKit app
+# - TypeScript
+# - ESLint, Prettier
+# - Playwright
+# - TailwindCSS
+
 cd freire
 
 # Configuración TypeScript estricta
