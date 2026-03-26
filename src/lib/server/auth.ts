@@ -339,13 +339,170 @@ export class AuthService {
     }
   }
 
-  static async getUserById(userId: string): Promise<AuthUser | null> {
+  static async getUserByEmail(email: string): Promise<AuthUser | null> {
     try {
       const user = await prisma.user.findUnique({
-        where: { id: userId },
+        where: { 
+          email: email.toLowerCase().trim(),
+          isActive: true 
+        },
         include: { role: true }
       });
 
+      if (!user) {
+        return null;
+      }
+
+      return {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName
+      };
+    } catch (error) {
+      console.error('Error obteniendo usuario por email:', error);
+      return null;
+    }
+  }
+
+  static async generatePasswordResetToken(userId: string): Promise<string> {
+    // Generar token único con expiración de 1 hora
+    const token = nanoid(); // Token único y seguro
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+    
+    // Guardar token en la base de datos
+    await prisma.refreshToken.create({
+      data: {
+        token,
+        userId,
+        expiresAt,
+        type: 'password_reset'
+      }
+    });
+
+    return token;
+  }
+
+  static async savePasswordResetToken(userId: string, token: string): Promise<void> {
+    // Este método está combinado con generatePasswordResetToken
+    // El token ya se guarda en la generación
+    console.log(`Token guardado para usuario ${userId}: ${token}`);
+  }
+
+  static async validatePasswordResetToken(token: string): Promise<{ isValid: boolean; user?: AuthUser }> {
+    try {
+      // Buscar token en la base de datos
+      const storedToken = await prisma.refreshToken.findUnique({
+        where: { 
+          token,
+          type: 'password_reset'
+        },
+        include: {
+          user: {
+            include: { role: true }
+          }
+        }
+      });
+
+      if (!storedToken || storedToken.expiresAt < new Date()) {
+        return { isValid: false };
+      }
+
+      // Obtener usuario asociado
+      const user = storedToken.user;
+      if (!user || !user.isActive) {
+        return { isValid: false };
+      }
+
+      return {
+        isValid: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          firstName: user.firstName,
+          lastName: user.lastName
+        }
+      };
+    } catch (error) {
+      console.error('Error validando token de recuperación:', error);
+      return { isValid: false };
+    }
+  }
+
+  static async updatePassword(userId: string, newPassword: string): Promise<boolean> {
+    try {
+      // Hashear nueva contraseña
+      const hashedPassword = await PasswordService.hashPassword(newPassword);
+      
+      // Actualizar contraseña del usuario
+      await prisma.user.update({
+        where: { id: userId },
+        data: { 
+          password: hashedPassword,
+          updatedAt: new Date()
+        }
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error actualizando contraseña:', error);
+      return false;
+    }
+  }
+
+  static async invalidateAllPasswordResetTokens(userId: string): Promise<void> {
+    try {
+      // Invalidar todos los tokens de recuperación del usuario
+      await prisma.refreshToken.deleteMany({
+        where: {
+          userId,
+          type: 'password_reset'
+        }
+      });
+    } catch (error) {
+      console.error('Error invalidando tokens de recuperación:', error);
+    }
+  }
+
+  static async generateSessionToken(user: AuthUser): Promise<string> {
+    // Generar token de sesión simple (más ligero que JWT)
+    const sessionToken = nanoid();
+    
+    // Guardar relación de sesión (opcional: para tracking)
+    await prisma.refreshToken.create({
+      data: {
+        token: sessionToken,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 horas
+        type: 'session'
+      }
+    });
+
+    return sessionToken;
+  }
+
+  static async validateSessionToken(sessionToken: string): Promise<AuthUser | null> {
+    try {
+      // Buscar token de sesión
+      const storedToken = await prisma.refreshToken.findUnique({
+        where: { 
+          token: sessionToken,
+          type: 'session'
+        },
+        include: {
+          user: {
+            include: { role: true }
+          }
+        }
+      });
+
+      if (!storedToken || storedToken.expiresAt < new Date()) {
+        return null;
+      }
+
+      const user = storedToken.user;
       if (!user || !user.isActive) {
         return null;
       }
@@ -358,7 +515,7 @@ export class AuthService {
         lastName: user.lastName
       };
     } catch (error) {
-      console.error('Error obteniendo usuario:', error);
+      console.error('Error validando sesión:', error);
       return null;
     }
   }
